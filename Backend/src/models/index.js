@@ -37,7 +37,7 @@ const createTable=(query)=>{
 //createTable(queryTableProfile)
 //createTable(queryTableSchedule)
 //createTable(queryTableSession)
-createTable(queryTableTarget)
+//createTable(queryTableTarget)
 //createTable(queryTableTag)
 //createTable(queryTableFood)
 

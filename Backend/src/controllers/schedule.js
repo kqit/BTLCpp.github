@@ -12,15 +12,17 @@ client.connect()
 const schedule={
     createTag:async(req,res)=>{
         const dataReq=req.body
-        const idUser=req.headers.id_user
-        const now=new Date()
+        const idUser=req.headers.iduser
+        const now=new Date(dataReq.date);
         const idSchedule='sc'+idUser
+        console.log(req.headers)
+        console.log(dataReq)
         const idSession=idSchedule+dataReq.session.slice(0,2)+now.getDate()+now.getMonth()+now.getFullYear()
-        const idTag=idSession+dataReq.id_food
+        const idTag=idSession+dataReq.idFood
         const queryCreateTag=`
             INSERT INTO tag(id_tag, id_food, mass)
             VALUES
-                ('${idTag}','${dataReq.id_food}','${dataReq.mass}')
+                ('${idTag}','${dataReq.idFood}','${dataReq.mass}')
         `
         const queryCreateSession=`
             INSERT INTO session(id_session, id_tag)
@@ -28,9 +30,9 @@ const schedule={
                 ('${idSession}','${idTag}')
         `
         const queryCreateSchedule=`
-            INSERT INTO schedule(id_schedule,id_session)
+            INSERT INTO schedule(id_schedule,id_session,times)
             VALUES
-                ('${idSchedule}','${idSession}')
+                ('${idSchedule}','${idSession}','${dataReq.date}')
         `
         const queryCheckSession=`
             SELECT * FROM schedule
@@ -44,7 +46,7 @@ const schedule={
         if(!dataCheckSession.rowCount){
             client.query(queryCreateSchedule,async (err)=>{
                 if(err){
-                    console.log(err)
+                    console.log("a")
                     res.send({
                         status:false,
                         notification:"Lỗi tạo schedule"
@@ -52,6 +54,7 @@ const schedule={
                 }else{
                     client.query(queryCreateSession,(err)=>{
                         if(err){
+                            console.log("a")
                             res.send({
                                 status:false,
                                 notification:"Lỗi tạo session"
@@ -59,6 +62,7 @@ const schedule={
                         }else{
                             client.query(queryCreateTag,(err)=>{
                                 if(err){
+                                    console.log("a")
                                     res.send({
                                         status:false,
                                         notification:"Lỗi tạo tag"
@@ -90,52 +94,59 @@ const schedule={
         
     },
     getSession:async(req,res)=>{
-        const dataReq=req.body
-        const idUser=req.headers.id_user
+        const dataReq=req.headers
+        const idUser=req.headers.iduser
         const queryGetIdSchedule=`
             SELECT * FROM users
             WHERE id='${idUser}'
         `
+        
         const data=await client.query(queryGetIdSchedule)
-        if(data){
+        //console.log(req.headers)
+        if(data.rowCount){
             const listData=await data.rows
             listData.forEach(async(element) => {
                 const queryGetIdSession=`
                 SELECT * FROM schedule
-                WHERE id_schedule='${element.id_schedule}' AND times='12/27/2022'
+                WHERE id_schedule='${element.id_schedule}' AND times='${req.headers.date}'
             `
                 const data1=await client.query(queryGetIdSession)
-                if(data1){
+                if(data1.rows[0]){
                     IdSession=()=>{
-                        let x
+                        let x={
+                            id_session:''
+                        }                       
                         data1.rows.forEach((element)=>{
                             if(dataReq.session=="morning"&&element.id_session.includes("mo")) x=element
                             if(dataReq.session=="afternoon"&&element.id_session.includes("af")) x=element
                             if(dataReq.session=="night"&&element.id_session.includes("ni")) x=element
-                            
+                            if(dataReq.session=="other"&&element.id_session.includes("ot")) x=element
                         })
                         return x.id_session
                     }
+                    
                     const queryGetTag=`
                         SELECT id_tag FROM session
                         WHERE id_session='${IdSession()}'
                         `
-                    console.log(IdSession())
+                    
                     const result=(await client.query(queryGetTag)).rows
-                    console.log(result)
-                    let dataRes=[]
+        
+                    let dataRes=[]                   
                     result.forEach(async (item)=>{
+                        console.log(item.id_tag)
                         const queryGetTag=`
                             SELECT id_food, mass FROM tag
                             WHERE id_tag='${item.id_tag}'
                         `
                         const dataTag=await client.query(queryGetTag)
+                        console.log(dataTag.rows)
+                        console.log(dataTag.rows[0])
                         const queryCalo=`
                             SELECT name,calo_per_100gr FROM food
                             WHERE id_food='${dataTag.rows[0].id_food}'
                         `
                         const chitiet=await client.query(queryCalo)
-                        console.log(chitiet.rows)
                         dataRes=[...dataRes,{id_tag:item.id_tag,...dataTag.rows[0],...chitiet.rows[0]}]
                         if(dataRes.length==result.length){
                             res.send({
@@ -145,18 +156,24 @@ const schedule={
                         }
                           
                     })                   
+                }else{
+                    res.send({
+                        status:false,
+                        data :[]
+                    })
                 }
             });
         }
     },
     getTag:async(req,res)=>{
-        const dataReq=req.body
+        const dataReq=req.headers
         const idTag=dataReq.id_tag
         const queryGetTag=`
             SELECT * FROM tag
             WHERE id_tag='${idTag}'
         `
         const dataTag= await client.query(queryGetTag)
+        console.log(dataTag)
         if(dataTag.rows[0]){
             const queryFood=`
                 SELECT * FROM food
@@ -166,8 +183,11 @@ const schedule={
             if(dataFood){
                 res.send({
                     status:true,
-                    mass:dataTag.rows[0].mass,
-                    data:dataFood
+                    
+                    data:{
+                        ...dataFood,
+                        mass:dataTag.rows[0].mass,
+                    }
                 })
             }else{
                 res.send({
@@ -184,22 +204,27 @@ const schedule={
     updataTag:async(req,res)=>{
         const dataReq=req.body
         const queryUpdateTag=`
-            UPDATE tag SET mass=${dataReq.newMass} WHERE id_tag='${dataReq.id_tag}'
+            UPDATE tag SET mass='${dataReq.newMass}' WHERE id_tag='${dataReq.idTag}'
             
         `
+        console.log(dataReq)
         client.query(queryUpdateTag,(err)=>{
             if(err){
                 res.send({status:false})
+                console.log("loi")
             }else{
+                console.log("ok")
                 res.send({
                     status:true
+
                 })
             }
         })
     },
     deletaTag:async(req,res)=>{
-        const dataReq=req.body
-        const idTag=dataReq.id_tag
+        const dataReq=req.headers
+        console.log(dataReq)
+        const idTag=dataReq.idtag
         const queryDeleteTag=`
                 DELETE FROM tag WHERE id_tag='${idTag}'
         `
@@ -207,6 +232,10 @@ const schedule={
             if(err){
                 res.send({status:false})
             }else{
+                const queryDeleteTagInSession=`
+                DELETE FROM session WHERE id_tag='${idTag}'
+                `
+                client.query(queryDeleteTagInSession)
                 res.send(
                     {status:true}
                 )

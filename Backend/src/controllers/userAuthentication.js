@@ -16,6 +16,7 @@ const  userAuthentication={
             SELECT * FROM users
             WHERE username='${dataReq.username}'
         `
+        console.log(dataReq)
         const checkUsernameDB=client.query(checkUsername)
         if((await checkUsernameDB).rows[0]){
             res.send({
@@ -45,37 +46,36 @@ const  userAuthentication={
     logIn:async(req,res)=>{
         const query=`
             SELECT * FROM users
-            WHERE username='${req.body.username}'
+            WHERE username='${req.headers.username}'
         `
-        const dataRes=(param1, param2, param3, param4)=>{
+        const dataRes=(param1, param2,param3)=>{
             return {
-                checkUsername:param1,
-                checkPassword:param2,
-                idUser:param3,
-                notification:param4
+                idUser:param1,
+                status:param2,
+                notification:param3
             }
         }
         const data=await client.query(query)
         console.log(data.rows)
         if(data.rows[0]){
-            if(data.rows[0].password==req.body.password){
-                res.send(dataRes(true,true,data.rows[0].id,"Đăng nhập thành công"))
+            if(data.rows[0].password==req.headers.password){
+                res.send(dataRes(data.rows[0].id,true,"Đăng nhập thành công"))
             }else{
-                res.send(dataRes(true,false,null,"Sai mật khẩu"))
+                res.send(dataRes(null,false,"Sai mật khẩu"))
             }
         }else{
-            res.send(dataRes(false,false,null,"Tài khoản không tồn tại"))
+            res.send(dataRes(null,false,"Tài khoản không tồn tại"))
         }
     },
     changePassword:async (req,res)=>{
         const dataReq=req.body
         const queryChangePassword=`
             UPDATE users SET password='${dataReq.newPassword}'
-            WHERE id='${req.headers.id_user}'
+            WHERE id='${req.headers.idUser}'
         `
         const queryGetPassword=`
             SELECT * FROM users
-            WHERE id='${req.headers.id_user}'
+            WHERE id='${req.headers.idUser}'
         `
         const dataDB=await client.query(queryGetPassword)
         if(dataReq.password===dataDB.rows[0].password){
